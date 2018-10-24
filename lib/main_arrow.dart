@@ -50,65 +50,76 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       appBar: new AppBar(
         title: new Text(widget.title),
       ),
-      body: GestureDetector(
-        onTap: () {
-          arrowController.startArrowTransition(
-              context, ArrowFlightDirection.forward);
-        },
-        child: Row(
-          children: <Widget>[
-            Column(
-              children: <Widget>[
-                Arrow(
-                  tag: 'source',
-                  targetTag: 'target',
-                  animation: controller1.view,
-                  child: Container(
+      body: Column(
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Column(
+                children: <Widget>[
+                  Arrow(
+                    tag: 'source',
+                    targetTag: 'target',
+                    child: Container(
+                      width: 60.0,
+                      height: 60.0,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  Container(
                     width: 60.0,
                     height: 60.0,
-                    color: Colors.blue,
+                    color: Colors.green,
                   ),
-                ),
-                Container(
-                  width: 60.0,
-                  height: 60.0,
-                  color: Colors.green,
-                ),
-                Container(
-                  width: 60.0,
-                  height: 60.0,
-                  color: Colors.yellow,
-                ),
-              ],
-            ),
-            Expanded(
-              child: SizedBox(),
-            ),
-            Column(
-              children: <Widget>[
-                Container(
-                  width: 60.0,
-                  height: 60.0,
-                  color: Colors.blue,
-                ),
-                Container(
-                  width: 60.0,
-                  height: 60.0,
-                  color: Colors.green,
-                ),
-                Arrow(
-                  tag: 'target',
-                  animation: controller2.view,
-                  child: Container(
+                  Container(
                     width: 60.0,
                     height: 60.0,
                     color: Colors.yellow,
                   ),
-                ),
-              ],
-            ),
-          ],
-        ),
+                ],
+              ),
+              Expanded(
+                child: SizedBox(),
+              ),
+              Column(
+                children: <Widget>[
+                  Container(
+                    width: 60.0,
+                    height: 60.0,
+                    color: Colors.blue,
+                  ),
+                  Container(
+                    width: 60.0,
+                    height: 60.0,
+                    color: Colors.green,
+                  ),
+                  Arrow(
+                    tag: 'target',
+                    child: Container(
+                      width: 80.0,
+                      height: 80.0,
+                      color: Colors.yellow,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Row(
+            children: <Widget>[
+              RaisedButton(
+                child: Text('forward'),
+                onPressed: () => arrowController.forward(context),
+              ),
+              Expanded(
+                child: SizedBox(),
+              ),
+              RaisedButton(
+                child: Text('reverse'),
+                onPressed: () => arrowController.reverse(context),
+              ),
+            ],
+          )
+        ],
       ),
     );
   }

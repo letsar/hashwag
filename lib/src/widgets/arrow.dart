@@ -48,7 +48,6 @@ class Arrow extends StatefulWidget {
     this.createRectTween,
     this.flightShuttleBuilder,
     this.placeholderBuilder,
-    @required this.animation,
     @required this.child,
   })  : assert(tag != null),
         assert(child != null),
@@ -98,8 +97,6 @@ class Arrow extends StatefulWidget {
   /// left in place once the Arrow shuttle has taken flight.
   final TransitionBuilder placeholderBuilder;
 
-  final Animation<double> animation;
-
   // Returns a map of all of the arrows in context, indexed by arrow tag.
   static Map<Object, _ArrowState> _allArrowsFor(BuildContext context) {
     assert(context != null);
@@ -142,9 +139,27 @@ class Arrow extends StatefulWidget {
   }
 }
 
-class _ArrowState extends State<Arrow> {
+class _ArrowState extends State<Arrow> with TickerProviderStateMixin {
   final GlobalKey _key = GlobalKey();
   Size _placeholderSize;
+  AnimationController _controller;
+
+  Animation<double> get animation => _controller.view;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+        duration: const Duration(milliseconds: 2000), vsync: this);
+  }
+
+  void startAnimation(ArrowFlightDirection flightType) {
+    if (flightType == ArrowFlightDirection.forward) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+  }
 
   void startFlight() {
     assert(mounted);
@@ -157,6 +172,7 @@ class _ArrowState extends State<Arrow> {
 
   void endFlight() {
     if (mounted) {
+      //_controller.reset();
       setState(() {
         _placeholderSize = null;
       });
@@ -192,7 +208,10 @@ class _ArrowFlightManifest {
     @required this.toArrow,
     @required this.createRectTween,
     @required this.shuttleBuilder,
-  }) : assert(fromArrow.widget.targetTag == toArrow.widget.tag);
+  }) : assert((type == ArrowFlightDirection.forward &&
+                fromArrow.widget.targetTag == toArrow.widget.tag) ||
+            (type == ArrowFlightDirection.reverse &&
+                toArrow.widget.targetTag == fromArrow.widget.tag));
 
   final ArrowFlightDirection type;
   final OverlayState overlay;
@@ -209,8 +228,8 @@ class _ArrowFlightManifest {
   Animation<double> get animation {
     return CurvedAnimation(
       parent: (type == ArrowFlightDirection.forward)
-          ? toArrow.widget.animation
-          : fromArrow.widget.animation,
+          ? fromArrow.animation
+          : toArrow.animation,
       curve: Curves.fastOutSlowIn,
     );
   }
@@ -327,21 +346,21 @@ class _ArrowFlight {
   // The simple case: we're either starting a forward or a reverse animation.
   void start(_ArrowFlightManifest initialManifest) {
     assert(!_aborted);
-    // assert(() {
-    //   final Animation<double> initial = initialManifest.animation;
-    //   assert(initial != null);
-    //   final ArrowFlightDirection type = initialManifest.type;
-    //   assert(type != null);
-    //   switch (type) {
-    //     case ArrowFlightDirection.reverse:
-    //       return initial.value == 1.0 &&
-    //           initial.status == AnimationStatus.reverse;
-    //     case ArrowFlightDirection.forward:
-    //       return initial.value == 0.0 &&
-    //           initial.status == AnimationStatus.forward;
-    //   }
-    //   return null;
-    // }());
+    assert(() {
+      final Animation<double> initial = initialManifest.animation;
+      assert(initial != null);
+      final ArrowFlightDirection type = initialManifest.type;
+      assert(type != null);
+      switch (type) {
+        case ArrowFlightDirection.reverse:
+          return initial.value == 1.0 &&
+              initial.status == AnimationStatus.reverse;
+        case ArrowFlightDirection.forward:
+          return initial.value == 0.0 &&
+              initial.status == AnimationStatus.forward;
+      }
+      return null;
+    }());
 
     manifest = initialManifest;
 
@@ -391,7 +410,15 @@ class ArrowController {
   // Indexed by the arrow tag.
   final Map<Object, _ArrowFlight> _flights = <Object, _ArrowFlight>{};
 
-  void startArrowTransition(
+  void forward(BuildContext context) {
+    _startArrowTransition(context, ArrowFlightDirection.forward);
+  }
+
+  void reverse(BuildContext context) {
+    _startArrowTransition(context, ArrowFlightDirection.reverse);
+  }
+
+  void _startArrowTransition(
     BuildContext context,
     ArrowFlightDirection flightType,
   ) {
@@ -400,8 +427,16 @@ class ArrowController {
     final Map<Object, _ArrowState> arrows = Arrow._allArrowsFor(context);
 
     for (Object tag in arrows.keys) {
+      final _ArrowState arrow = arrows[tag];
+      Object targetTag = arrow.widget.targetTag;
+      if (flightType == ArrowFlightDirection.reverse) {
+        final Object tempTag = tag;
+        tag = targetTag;
+        targetTag = tempTag;
+      }
+
       final Arrow fromArrow = arrows[tag].widget;
-      final Arrow toArrow = arrows[fromArrow.targetTag]?.widget;
+      final Arrow toArrow = arrows[targetTag]?.widget;
 
       if (toArrow != null) {
         final ArrowFlightShuttleBuilder fromShuttleBuilder =
@@ -414,13 +449,14 @@ class ArrowController {
           overlay: Overlay.of(context),
           rect: rect,
           fromArrow: arrows[tag],
-          toArrow: arrows[fromArrow.targetTag],
+          toArrow: arrows[targetTag],
           createRectTween: createRectTween,
           shuttleBuilder: toShuttleBuilder ??
               fromShuttleBuilder ??
               _defaultArrowFlightShuttleBuilder,
         );
 
+        arrow.startAnimation(flightType);
         _flights[tag] = _ArrowFlight(_handleFlightEnded)..start(manifest);
       } else if (_flights[tag] != null) {
         _flights[tag].abort();
