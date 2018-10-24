@@ -11,7 +11,12 @@ typedef ArrowFlightShuttleBuilder = Widget Function(
   BuildContext toArrowContext,
 );
 
+typedef AnimationBuilder = Animation<double> Function(
+    Animation<double> animation);
+
 typedef _OnFlightEnded = void Function(_ArrowFlight flight);
+
+Animation<double> _sameAnimation(Animation<double> animation) => animation;
 
 /// Direction of the arrow's flight.
 enum ArrowFlightDirection {
@@ -48,9 +53,12 @@ class Arrow extends StatefulWidget {
     this.createRectTween,
     this.flightShuttleBuilder,
     this.placeholderBuilder,
+    this.duration = const Duration(milliseconds: 300),
+    AnimationBuilder animationBuilder,
     @required this.child,
   })  : assert(tag != null),
         assert(child != null),
+        animationBuilder = animationBuilder ?? _sameAnimation,
         super(key: key);
 
   /// The identifier for this particular arrow.
@@ -96,6 +104,10 @@ class Arrow extends StatefulWidget {
   /// By default, an empty SizedBox keeping the Arrow child's original size is
   /// left in place once the Arrow shuttle has taken flight.
   final TransitionBuilder placeholderBuilder;
+
+  final AnimationBuilder animationBuilder;
+
+  final Duration duration;
 
   // Returns a map of all of the arrows in context, indexed by arrow tag.
   static Map<Object, _ArrowState> _allArrowsFor(BuildContext context) {
@@ -143,14 +155,25 @@ class _ArrowState extends State<Arrow> with TickerProviderStateMixin {
   final GlobalKey _key = GlobalKey();
   Size _placeholderSize;
   AnimationController _controller;
+  Animation<double> _animation;
 
-  Animation<double> get animation => _controller.view;
+  Animation<double> get animation => _animation;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-        duration: const Duration(milliseconds: 2000), vsync: this);
+    _initController();
+  }
+
+  void didUpdateWidget(Arrow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _initController();
+  }
+
+  void _initController() {
+    _controller?.stop();
+    _controller = AnimationController(duration: widget.duration, vsync: this);
+    _animation = widget.animationBuilder(_controller.view);
   }
 
   void startAnimation(ArrowFlightDirection flightType) {
@@ -435,31 +458,33 @@ class ArrowController {
         targetTag = tempTag;
       }
 
-      final Arrow fromArrow = arrows[tag].widget;
-      final Arrow toArrow = arrows[targetTag]?.widget;
+      if (arrows[tag] != null) {
+        final Arrow fromArrow = arrows[tag].widget;
+        final Arrow toArrow = arrows[targetTag]?.widget;
 
-      if (toArrow != null) {
-        final ArrowFlightShuttleBuilder fromShuttleBuilder =
-            fromArrow.flightShuttleBuilder;
-        final ArrowFlightShuttleBuilder toShuttleBuilder =
-            toArrow.flightShuttleBuilder;
+        if (toArrow != null) {
+          final ArrowFlightShuttleBuilder fromShuttleBuilder =
+              fromArrow.flightShuttleBuilder;
+          final ArrowFlightShuttleBuilder toShuttleBuilder =
+              toArrow.flightShuttleBuilder;
 
-        final _ArrowFlightManifest manifest = _ArrowFlightManifest(
-          type: flightType,
-          overlay: Overlay.of(context),
-          rect: rect,
-          fromArrow: arrows[tag],
-          toArrow: arrows[targetTag],
-          createRectTween: createRectTween,
-          shuttleBuilder: toShuttleBuilder ??
-              fromShuttleBuilder ??
-              _defaultArrowFlightShuttleBuilder,
-        );
+          final _ArrowFlightManifest manifest = _ArrowFlightManifest(
+            type: flightType,
+            overlay: Overlay.of(context),
+            rect: rect,
+            fromArrow: arrows[tag],
+            toArrow: arrows[targetTag],
+            createRectTween: createRectTween,
+            shuttleBuilder: toShuttleBuilder ??
+                fromShuttleBuilder ??
+                _defaultArrowFlightShuttleBuilder,
+          );
 
-        arrow.startAnimation(flightType);
-        _flights[tag] = _ArrowFlight(_handleFlightEnded)..start(manifest);
-      } else if (_flights[tag] != null) {
-        _flights[tag].abort();
+          arrow.startAnimation(flightType);
+          _flights[tag] = _ArrowFlight(_handleFlightEnded)..start(manifest);
+        } else if (_flights[tag] != null) {
+          _flights[tag].abort();
+        }
       }
     }
   }
