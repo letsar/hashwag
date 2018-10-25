@@ -31,17 +31,17 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   ArrowController arrowController;
-  AnimationController controller1;
-  AnimationController controller2;
 
   @override
   void initState() {
     super.initState();
-    arrowController = new ArrowController();
-    controller1 = AnimationController(
-        vsync: this, duration: Duration(milliseconds: 5000));
-    controller2 = AnimationController(
-        vsync: this, duration: Duration(milliseconds: 5000));
+    arrowController =
+        ArrowController(vsync: this, duration: Duration(milliseconds: 1000));
+  }
+
+  void dispose() {
+    arrowController.dispose();
+    super.dispose();
   }
 
   @override
@@ -65,10 +65,14 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                       color: Colors.blue,
                     ),
                   ),
-                  Container(
-                    width: 60.0,
-                    height: 60.0,
-                    color: Colors.green,
+                  Arrow(
+                    tag: 'source2',
+                    targetTag: 'target2',
+                    child: Container(
+                      width: 60.0,
+                      height: 60.0,
+                      color: Colors.green,
+                    ),
                   ),
                   Container(
                     width: 60.0,
@@ -82,10 +86,13 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
               ),
               Column(
                 children: <Widget>[
-                  Container(
-                    width: 60.0,
-                    height: 60.0,
-                    color: Colors.blue,
+                  Arrow(
+                    tag: 'target2',
+                    child: Container(
+                      width: 60.0,
+                      height: 60.0,
+                      color: Colors.blue,
+                    ),
                   ),
                   Container(
                     width: 60.0,
