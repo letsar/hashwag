@@ -39,6 +39,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   static const double _overlap = 0.8;
   static const double _duration = 1.0 / (_count - _overlap * (_count - 1));
   static const double _overlapDuration = _duration * _overlap;
+  static const LerpCurve _start = LerpCurve(0.0, 0.80, curve: Curves.easeIn);
+  static const LerpCurve _end = LerpCurve(0.4, 1.0, curve: Curves.easeIn);
 
   @override
   void initState() {
@@ -57,12 +59,15 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   List<Widget> buildItems(BuildContext context, bool isSource) {
     List<double> starts = List<double>();
     List<double> ends = List<double>();
+    Tween<double> r;
 
     final TextStyle textStyle = Theme.of(context).textTheme.body1;
     List<Widget> cloudItems = List<Widget>();
     for (var i = 0; i < _count; i++) {
-      starts.add((_duration - _overlapDuration) * i);
-      ends.add((_duration - _overlapDuration) * i + _duration);
+      //starts.add((_duration - _overlapDuration) * i);
+      //ends.add((_duration - _overlapDuration) * i + _duration);
+      starts.add(_start.transform(i / _count));
+      ends.add(_end.transform(i / _count));
       if (i == 0) {
         cloudItems.add(buildItem(context, i, isSource,
             textStyle.copyWith(fontSize: 48.0, color: Colors.blue)));
@@ -77,15 +82,16 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   Widget buildItem(
       BuildContext context, int index, bool isSource, TextStyle style) {
+    final double pos = index / _count;
     return Arrow(
       tag: isSource ? 'source_$index' : 'target_$index',
       targetTag: isSource ? 'target_$index' : null,
       animationBuilder: (animation) => CurvedAnimation(
             parent: animation,
             curve: Interval(
-              (_duration - _overlapDuration) * index,
-              (_duration - _overlapDuration) * index + _duration,
-              curve: Curves.ease,
+              _start.transform(pos),
+              _end.transform(pos),
+              curve: Curves.easeIn,
             ),
           ),
       child: FittedBox(
@@ -179,5 +185,39 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
         break;
       default:
     }
+  }
+}
+
+class LerpCurve extends Curve {
+  /// Creates an interval curve.
+  ///
+  /// The arguments must not be null.
+  const LerpCurve(this.begin, this.end, {this.curve = Curves.linear})
+      : assert(begin != null),
+        assert(end != null),
+        assert(curve != null);
+
+  /// The largest value for which this interval is 0.0.
+  ///
+  /// From t=0.0 to t=`begin`, the interval's value is 0.0.
+  final double begin;
+
+  /// The smallest value for which this interval is 1.0.
+  ///
+  /// From t=`end` to t=1.0, the interval's value is 1.0.
+  final double end;
+
+  /// The curve to apply between [begin] and [end].
+  final Curve curve;
+
+  @override
+  double transform(double t) {
+    assert(t >= 0.0 && t <= 1.0);
+    assert(begin >= 0.0);
+    assert(begin <= 1.0);
+    assert(end >= 0.0);
+    assert(end <= 1.0);
+    assert(end >= begin);
+    return curve.transform(begin + (end - begin) * t);
   }
 }
