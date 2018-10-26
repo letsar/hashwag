@@ -91,7 +91,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
             curve: Interval(
               _start.transform(pos),
               _end.transform(pos),
-              curve: Curves.easeIn,
+              curve: Curves.ease,
             ),
           ),
       child: FittedBox(
@@ -107,11 +107,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final List<Widget> sources = buildItems(context, true);
     final List<Widget> targets = buildItems(context, false);
-    final Matrix4 transform = Matrix4.identity()..scale(8.0, 8.0, 1.0);
-    return new Scaffold(
-      appBar: new AppBar(
-        title: new Text(widget.title),
-      ),
+    final Matrix4 transform = Matrix4.identity()..scale(100.0, 100.0, 1.0);
+    return Scaffold(
       body: Column(
         children: <Widget>[
           Expanded(
