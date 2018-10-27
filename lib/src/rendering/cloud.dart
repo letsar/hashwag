@@ -125,6 +125,13 @@ class RenderCloud extends RenderBox
             iteration += dt,
             ratio,
           );
+
+          // In order to avoid vertical elements to be stacked at the same
+          // place, we move the element of its size and repeat the operation.
+          if (_overlapsPreviousElement(childParentData)) {
+            childParentData.offset -=
+                Offset(childParentData.width, childParentData.height);
+          }
         } while (_overlapsPreviousElement(childParentData));
 
         bounds = bounds.expandToInclude(childParentData.rect);

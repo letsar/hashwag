@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:hashwag/src/flutter_hashtags.dart';
 import 'package:hashwag/src/rendering/cloud.dart';
 import 'package:hashwag/src/widgets/arrow.dart';
-import 'dart:math' as math;
-
 import 'package:hashwag/src/widgets/cloud.dart';
 
 void main() => runApp(new MyApp());
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return new MaterialApp(
-      //showPerformanceOverlay: true,
       title: 'Flutter Demo',
       theme: new ThemeData(
         primarySwatch: Colors.blue,
@@ -35,12 +32,10 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   ArrowController arrowController;
   double sourceOpacity = 0.0;
   double targetOpacity = 0.0;
-  static const int _count = 50;
-  static const double _overlap = 0.8;
-  static const double _duration = 1.0 / (_count - _overlap * (_count - 1));
-  static const double _overlapDuration = _duration * _overlap;
+  static int _count = kFlutterHashtags.length;
   static const LerpCurve _start = LerpCurve(0.0, 0.80, curve: Curves.easeIn);
   static const LerpCurve _end = LerpCurve(0.4, 1.0, curve: Curves.easeIn);
+  bool animating = false;
 
   @override
   void initState() {
@@ -57,31 +52,25 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   }
 
   List<Widget> buildItems(BuildContext context, bool isSource) {
-    List<double> starts = List<double>();
-    List<double> ends = List<double>();
-    Tween<double> r;
-
-    final TextStyle textStyle = Theme.of(context).textTheme.body1;
     List<Widget> cloudItems = List<Widget>();
     for (var i = 0; i < _count; i++) {
-      //starts.add((_duration - _overlapDuration) * i);
-      //ends.add((_duration - _overlapDuration) * i + _duration);
-      starts.add(_start.transform(i / _count));
-      ends.add(_end.transform(i / _count));
-      if (i == 0) {
-        cloudItems.add(buildItem(context, i, isSource,
-            textStyle.copyWith(fontSize: 48.0, color: Colors.blue)));
-      } else {
-        double fontSize = 12.0 + i ~/ 3;
-        cloudItems.add(buildItem(
-            context, i, isSource, textStyle.copyWith(fontSize: fontSize)));
-      }
+      final FlutterHashtag hashtag = kFlutterHashtags[i];
+      cloudItems.add(buildItem(
+        context,
+        i,
+        isSource,
+        hashtag,
+      ));
     }
     return cloudItems;
   }
 
   Widget buildItem(
-      BuildContext context, int index, bool isSource, TextStyle style) {
+      BuildContext context, int index, bool isSource, FlutterHashtag hashtag) {
+    final TextStyle style = Theme.of(context).textTheme.body1.copyWith(
+          fontSize: hashtag.size.toDouble(),
+          color: hashtag.color,
+        );
     final double pos = index / _count;
     return Arrow(
       tag: isSource ? 'source_$index' : 'target_$index',
@@ -91,93 +80,104 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
             curve: Interval(
               _start.transform(pos),
               _end.transform(pos),
-              curve: Curves.ease,
+              curve: Curves.fastOutSlowIn,
             ),
           ),
       child: FittedBox(
-        child: Text(
-          '#FlutterIsComing',
-          style: style,
+        child: RotatedBox(
+          quarterTurns: hashtag.rotated ? 1 : 0,
+          child: Text(
+            hashtag.hashtag,
+            style: style,
+          ),
         ),
       ),
+      flightShuttleBuilder: (
+        context,
+        animation,
+        type,
+        from,
+        to,
+      ) {
+        return FittedBox(
+          child: Opacity(
+            opacity: (animation.value * 2).clamp(0.0, 1.0),
+            child: RotatedBox(
+              quarterTurns: hashtag.rotated ? 1 : 0,
+              child: Text(
+                hashtag.hashtag,
+                style: style,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final ratio = screenSize.width / screenSize.height;
     final List<Widget> sources = buildItems(context, true);
     final List<Widget> targets = buildItems(context, false);
-    final Matrix4 transform = Matrix4.identity()..scale(100.0, 100.0, 1.0);
+    final Matrix4 transform = Matrix4.identity()..scale(25.0, 25.0, 1.0);
     return Scaffold(
-      body: Column(
-        children: <Widget>[
-          Expanded(
-            child: Stack(
-              children: <Widget>[
-                Opacity(
-                  opacity: targetOpacity,
-                  child: Center(
-                    child: FittedBox(
-                      child: Cloud(
-                        children: targets,
-                        placementDelegate: ArchimedeanSpiralPlacementDelegate(
-                            ratio: 16.0 / 9.0),
-                      ),
-                    ),
+      body: GestureDetector(
+        onTap: () {
+          if (!animating) {
+            animating = true;
+            arrowController
+                .forward(context)
+                .then((_) => Future.delayed(Duration(milliseconds: 1000)))
+                .then((_) => arrowController.reverse(context))
+                .then((_) => animating = false);
+          }
+        },
+        child: Stack(
+          children: <Widget>[
+            Opacity(
+              opacity: targetOpacity,
+              child: Center(
+                child: FittedBox(
+                  child: Cloud(
+                    children: targets,
+                    placementDelegate:
+                        ArchimedeanSpiralPlacementDelegate(ratio: ratio),
                   ),
                 ),
-                Opacity(
-                  opacity: sourceOpacity,
-                  child: Transform(
-                    alignment: Alignment.center,
-                    transform: transform,
-                    child: Cloud(
-                      children: sources,
-                      placementDelegate:
-                          ArchimedeanSpiralPlacementDelegate(ratio: 16.0 / 9.0),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          Row(
-            children: <Widget>[
-              RaisedButton(
-                child: Text('forward'),
-                onPressed: () => arrowController.forward(context),
+            Opacity(
+              opacity: sourceOpacity,
+              child: Transform(
+                alignment: Alignment.center,
+                transform: transform,
+                child: Cloud(
+                  children: sources,
+                  placementDelegate:
+                      ArchimedeanSpiralPlacementDelegate(ratio: ratio),
+                ),
               ),
-              Expanded(
-                child: SizedBox(),
-              ),
-              RaisedButton(
-                child: Text('reverse'),
-                onPressed: () => arrowController.reverse(context),
-              ),
-            ],
-          )
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   void handleStatusChanged(AnimationStatus status) {
     switch (status) {
-      case AnimationStatus.forward:
-      case AnimationStatus.reverse:
-        setState(() {
-          sourceOpacity = 0.0;
-          targetOpacity = 0.0;
-        });
-        break;
       case AnimationStatus.completed:
         setState(() {
           targetOpacity = 1.0;
+          sourceOpacity = 0.0;
         });
         break;
       case AnimationStatus.dismissed:
         setState(() {
           sourceOpacity = 0.0;
+          targetOpacity = 0.0;
         });
         break;
       default:

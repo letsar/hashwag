@@ -335,20 +335,6 @@ class _ArrowFlight {
   // The simple case: we're either starting a forward or a reverse animation.
   void start(_ArrowFlightManifest initialManifest) {
     assert(!_aborted);
-    assert(() {
-      final Animation<double> initial = initialManifest.animation;
-      assert(initial != null);
-      final ArrowFlightDirection type = initialManifest.type;
-      assert(type != null);
-      switch (type) {
-        case ArrowFlightDirection.reverse:
-          return initial.status == AnimationStatus.reverse;
-        case ArrowFlightDirection.forward:
-          return initial.status == AnimationStatus.forward;
-      }
-      return null;
-    }());
-
     manifest = initialManifest;
 
     if (manifest.type == ArrowFlightDirection.reverse)
@@ -440,14 +426,18 @@ class ArrowController extends Animation<double> {
   // Indexed by the arrow tag.
   final Map<Object, _ArrowFlight> _flights = <Object, _ArrowFlight>{};
 
-  void forward(BuildContext context) {
-    _controller.forward();
-    _startArrowTransition(context, ArrowFlightDirection.forward);
+  TickerFuture forward(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((Duration value) {
+      _startArrowTransition(context, ArrowFlightDirection.forward);
+    });
+    return _controller.forward();
   }
 
-  void reverse(BuildContext context) {
-    _controller.reverse();
-    _startArrowTransition(context, ArrowFlightDirection.reverse);
+  TickerFuture reverse(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((Duration value) {
+      _startArrowTransition(context, ArrowFlightDirection.reverse);
+    });
+    return _controller.reverse();
   }
 
   void _startArrowTransition(
