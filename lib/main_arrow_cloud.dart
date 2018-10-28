@@ -80,7 +80,9 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
             curve: Interval(
               _start.transform(pos),
               _end.transform(pos),
-              curve: Curves.fastOutSlowIn,
+              curve: isSource
+                  ? Curves.fastOutSlowIn
+                  : FlippedCurve(Curves.fastOutSlowIn),
             ),
           ),
       child: FittedBox(
@@ -99,17 +101,22 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
         from,
         to,
       ) {
-        return FittedBox(
-          child: Opacity(
-            opacity: (animation.value * 2).clamp(0.0, 1.0),
-            child: RotatedBox(
-              quarterTurns: hashtag.rotated ? 1 : 0,
-              child: Text(
-                hashtag.hashtag,
-                style: style,
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            return FittedBox(
+              child: Opacity(
+                opacity: (animation.value * 2).clamp(0.0, 1.0),
+                child: RotatedBox(
+                  quarterTurns: hashtag.rotated ? 1 : 0,
+                  child: Text(
+                    hashtag.hashtag,
+                    style: style,
+                  ),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         );
       },
     );

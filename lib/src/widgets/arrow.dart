@@ -221,9 +221,7 @@ class _ArrowFlightManifest {
   Object get targetTag => toArrow.widget.tag;
 
   Animation<double> get animation {
-    return (type == ArrowFlightDirection.forward)
-        ? fromArrow.widget.animationBuilder(animationController)
-        : toArrow.widget.animationBuilder(animationController);
+    return fromArrow.widget.animationBuilder(animationController);
   }
 
   @override
@@ -242,6 +240,7 @@ class _ArrowFlight {
   final _OnFlightEnded onFlightEnded;
 
   Tween<Rect> arrowRectTween;
+  Widget shuttle;
 
   Animation<double> _arrowOpacity = kAlwaysCompleteAnimation;
   ProxyAnimation _proxyAnimation;
@@ -262,10 +261,18 @@ class _ArrowFlight {
   // The OverlayEntry WidgetBuilder callback for the arrow's overlay.
   Widget _buildOverlay(BuildContext context) {
     assert(manifest != null);
+    shuttle ??= manifest.shuttleBuilder(
+      context,
+      manifest.animation,
+      manifest.type,
+      manifest.fromArrow.context,
+      manifest.toArrow.context,
+    );
+    assert(shuttle != null);
 
     return AnimatedBuilder(
       animation: _proxyAnimation,
-      //child: shuttle,
+      child: shuttle,
       builder: (BuildContext context, Widget child) {
         final RenderBox toArrowBox =
             manifest.toArrow.context?.findRenderObject();
@@ -294,21 +301,15 @@ class _ArrowFlight {
         final RelativeRect offsets = RelativeRect.fromSize(rect, size);
 
         return Positioned(
-          top: offsets.top,
-          right: offsets.right,
-          bottom: offsets.bottom,
           left: offsets.left,
+          top: offsets.top,
+          width: rect.width,
+          height: rect.height,
           child: IgnorePointer(
             child: RepaintBoundary(
               child: Opacity(
                 opacity: _arrowOpacity.value,
-                child: manifest.shuttleBuilder(
-                  context,
-                  manifest.animation,
-                  manifest.type,
-                  manifest.fromArrow.context,
-                  manifest.toArrow.context,
-                ),
+                child: child,
               ),
             ),
           ),
@@ -426,16 +427,34 @@ class ArrowController extends Animation<double> {
   // Indexed by the arrow tag.
   final Map<Object, _ArrowFlight> _flights = <Object, _ArrowFlight>{};
 
-  TickerFuture forward(BuildContext context) {
+  TickerFuture forward(
+    BuildContext context, {
+    List<Object> tags,
+  }) {
+    _controller.reset();
+    if (status == AnimationStatus.forward ||
+        status == AnimationStatus.completed) {
+      return TickerFuture.complete();
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((Duration value) {
-      _startArrowTransition(context, ArrowFlightDirection.forward);
+      _startArrowTransition(context, ArrowFlightDirection.forward, tags);
     });
     return _controller.forward();
   }
 
-  TickerFuture reverse(BuildContext context) {
+  TickerFuture reverse(
+    BuildContext context, {
+    List<Object> tags,
+  }) {
+    _controller.value = 1.0;
+    if (status == AnimationStatus.reverse ||
+        status == AnimationStatus.dismissed) {
+      return TickerFuture.complete();
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((Duration value) {
-      _startArrowTransition(context, ArrowFlightDirection.reverse);
+      _startArrowTransition(context, ArrowFlightDirection.reverse, tags);
     });
     return _controller.reverse();
   }
@@ -443,46 +462,49 @@ class ArrowController extends Animation<double> {
   void _startArrowTransition(
     BuildContext context,
     ArrowFlightDirection flightType,
+    List<Object> tags,
   ) {
     final Rect rect = _globalBoundingBoxFor(context);
 
     final Map<Object, _ArrowState> arrows = Arrow._allArrowsFor(context);
 
-    for (Object tag in arrows.keys) {
+    for (Object tag in tags ?? arrows.keys) {
       final _ArrowState arrow = arrows[tag];
-      Object targetTag = arrow.widget.targetTag;
-      if (flightType == ArrowFlightDirection.reverse) {
-        final Object tempTag = tag;
-        tag = targetTag;
-        targetTag = tempTag;
-      }
+      if (arrow != null) {
+        Object targetTag = arrow.widget.targetTag;
+        if (flightType == ArrowFlightDirection.reverse) {
+          final Object tempTag = tag;
+          tag = targetTag;
+          targetTag = tempTag;
+        }
 
-      if (arrows[tag] != null) {
-        final Arrow fromArrow = arrows[tag].widget;
-        final Arrow toArrow = arrows[targetTag]?.widget;
+        if (arrows[tag] != null) {
+          final Arrow fromArrow = arrows[tag].widget;
+          final Arrow toArrow = arrows[targetTag]?.widget;
 
-        if (toArrow != null) {
-          final ArrowFlightShuttleBuilder fromShuttleBuilder =
-              fromArrow.flightShuttleBuilder;
-          final ArrowFlightShuttleBuilder toShuttleBuilder =
-              toArrow.flightShuttleBuilder;
+          if (toArrow != null) {
+            final ArrowFlightShuttleBuilder fromShuttleBuilder =
+                fromArrow.flightShuttleBuilder;
+            final ArrowFlightShuttleBuilder toShuttleBuilder =
+                toArrow.flightShuttleBuilder;
 
-          final _ArrowFlightManifest manifest = _ArrowFlightManifest(
-            type: flightType,
-            overlay: Overlay.of(context),
-            rect: rect,
-            fromArrow: arrows[tag],
-            toArrow: arrows[targetTag],
-            createRectTween: createRectTween,
-            shuttleBuilder: toShuttleBuilder ??
-                fromShuttleBuilder ??
-                _defaultArrowFlightShuttleBuilder,
-            animationController: _controller.view,
-          );
+            final _ArrowFlightManifest manifest = _ArrowFlightManifest(
+              type: flightType,
+              overlay: Overlay.of(context),
+              rect: rect,
+              fromArrow: arrows[tag],
+              toArrow: arrows[targetTag],
+              createRectTween: createRectTween,
+              shuttleBuilder: toShuttleBuilder ??
+                  fromShuttleBuilder ??
+                  _defaultArrowFlightShuttleBuilder,
+              animationController: _controller.view,
+            );
 
-          _flights[tag] = _ArrowFlight(_handleFlightEnded)..start(manifest);
-        } else if (_flights[tag] != null) {
-          _flights[tag].abort();
+            _flights[tag] = _ArrowFlight(_handleFlightEnded)..start(manifest);
+          } else if (_flights[tag] != null) {
+            _flights[tag].abort();
+          }
         }
       }
     }
