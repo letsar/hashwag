@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:hashwag/src/rendering/cloud.dart';
-import 'dart:math' as math;
+import 'package:hashwag/src/flutter_hashtags.dart';
+import 'package:flutter_sidekick/flutter_sidekick.dart';
+import 'package:flutter_scatter/flutter_scatter.dart';
 
-import 'package:hashwag/src/widgets/cloud.dart';
+int _count = kFlutterHashtags.length;
+const LerpCurve _start = LerpCurve(0.0, 0.80, curve: Curves.easeIn);
+const LerpCurve _end = LerpCurve(0.4, 1.0, curve: Curves.easeIn);
 
 void main() => runApp(new MyApp());
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return new MaterialApp(
@@ -29,77 +31,207 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => new _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  math.Random _rnd = math.Random();
+class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
+  SidekickController sidekickController;
+  double sourceOpacity = 0.0;
+  double targetOpacity = 0.0;
+  bool animating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    sidekickController =
+        SidekickController(vsync: this, duration: Duration(milliseconds: 5000));
+    sidekickController.addStatusListener(handleStatusChanged);
+  }
+
+  void dispose() {
+    sidekickController.removeStatusListener(handleStatusChanged);
+    sidekickController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    List<Widget> cloudItems = List<Widget>();
-    // for (var i = 0; i < 50; i++) {
-    //   var color = i % 2 == 0 ? Colors.green : Colors.blue;
-    //   var height = _rnd.nextDouble() * 50 + 20;
-    //   var width = _rnd.nextDouble() * 50 + 20;
-    //   cloudItems.add(Container(
-    //     width: width,
-    //     height: height,
-    //     color: color,
-    //     child: Text('$i'),
-    //   ));
-    // }
-    for (var i = 0; i < 50; i++) {
-      if (i == 0) {
-        cloudItems.add(Text(
-          '#FlutterIsComing',
-          style: TextStyle(fontSize: 48.0, color: Colors.blue),
-        ));
-      } else {
-        double fontSize = _rnd.nextInt(36) + 12.0;
-        cloudItems.add(Text(
-          '#FlutterIsComing',
-          style: TextStyle(fontSize: fontSize),
-        ));
-      }
-    }
-
-    return new Scaffold(
-      appBar: new AppBar(
-        title: new Text(widget.title),
-      ),
-      body: new Center(
-        child: FittedBox(
-          child: Cloud(
-            children: cloudItems,
-            placementDelegate:
-                ArchimedeanSpiralPlacementDelegate(ratio: 16.0 / 9.0),
-          ),
+    final screenSize = MediaQuery.of(context).size;
+    final ratio = screenSize.width / screenSize.height;
+    final Matrix4 transform = Matrix4.identity()..scale(20.0, 20.0, 1.0);
+    return Scaffold(
+      body: GestureDetector(
+        onTap: () {
+          if (!animating) {
+            animating = true;
+            sidekickController
+                .moveToTarget(context)
+                .then((_) => Future.delayed(Duration(milliseconds: 10)))
+                .then((_) => sidekickController.moveToSource(context))
+                .then((_) => animating = false);
+          }
+        },
+        child: Stack(
+          children: <Widget>[
+            Opacity(
+              opacity: targetOpacity,
+              child: Center(
+                child: FittedBox(child: HashtagWidget(false, ratio)),
+              ),
+            ),
+            Opacity(
+              opacity: sourceOpacity,
+              child: Transform(
+                alignment: Alignment.center,
+                transform: transform,
+                child: HashtagWidget(true, ratio),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  void handleStatusChanged(AnimationStatus status) {
+    switch (status) {
+      case AnimationStatus.completed:
+        setState(() {
+          targetOpacity = 1.0;
+          sourceOpacity = 0.0;
+        });
+        break;
+      case AnimationStatus.dismissed:
+        setState(() {
+          sourceOpacity = 0.0;
+          targetOpacity = 0.0;
+        });
+        break;
+      default:
+    }
+  }
 }
 
-// class SpiralPainter extends CustomPainter {
-//   SpiralPainter(this.max);
+class HashtagWidget extends StatelessWidget {
+  HashtagWidget(this.isSource, this.ratio);
+  final bool isSource;
+  final double ratio;
 
-//   final int max;
+  @override
+  Widget build(BuildContext context) {
+    List<Widget> cloudItems = List<Widget>();
+    for (var i = 0; i < _count; i++) {
+      final FlutterHashtag hashtag = kFlutterHashtags[i];
+      cloudItems.add(Hashtag(
+        i,
+        isSource,
+        hashtag,
+      ));
+    }
+    return Scatter(
+      fillGaps: true,
+      children: cloudItems,
+      delegate: ArchimedeanSpiralScatterDelegate(ratio: ratio),
+    );
+  }
+}
 
-//   @override
-//   void paint(Canvas canvas, Size size) {
-//     Paint paint = Paint()..color = Colors.black;
+class Hashtag extends StatelessWidget {
+  Hashtag(this.index, this.isSource, this.hashtag);
+  final int index;
+  final bool isSource;
+  final FlutterHashtag hashtag;
 
-//     final center = size.center(Offset.zero);
-//     final dx = center.dx;
-//     final dy = center.dy;
-//     Spiral spiral = _ArchimedeanSpiral(size);
-//     for (var i = 0; i < max; i++) {
-//       Offset offset = spiral.getOffset(i);
-//       offset = offset.translate(dx, dy);
-//       canvas.drawCircle(offset, 1.0, paint);
-//     }
-//   }
+  @override
+  Widget build(BuildContext context) {
+    final TextStyle style = Theme.of(context).textTheme.body1.copyWith(
+          fontSize: hashtag.size.toDouble(),
+          color: hashtag.color,
+        );
+    final tween = Tween<double>(
+        begin: hashtag.size.toDouble(), end: hashtag.size.toDouble() / 2.0);
+    final double pos = index / _count;
+    return Sidekick(
+      tag: isSource ? 'source_$index' : 'target_$index',
+      targetTag: isSource ? 'target_$index' : null,
+      animationBuilder: (animation) => CurvedAnimation(
+            parent: animation,
+            curve: Interval(
+              _start.transform(pos),
+              _end.transform(pos),
+              curve: isSource
+                  ? Curves.fastOutSlowIn
+                  : FlippedCurve(Curves.fastOutSlowIn),
+            ),
+          ),
+      child: RotatedBox(
+        quarterTurns: hashtag.rotated ? 1 : 0,
+        child: Text(
+          hashtag.hashtag,
+          style: style,
+        ),
+      ),
+      flightShuttleBuilder: (
+        context,
+        animation,
+        type,
+        from,
+        to,
+      ) {
+        // var s = style.copyWith(
+        //     fontSize:
+        //         Tween<double>(begin: from.size.height, end: to.size.height)
+        //             .evaluate(animation));
 
-//   @override
-//   bool shouldRepaint(CustomPainter oldDelegate) {
-//     return false;
-//   }
-// }
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            return FittedBox(
+              child: Opacity(
+                opacity: (animation.value * 2).clamp(0.0, 1.0),
+                child: RotatedBox(
+                  quarterTurns: hashtag.rotated ? 1 : 0,
+                  child: Text(
+                    hashtag.hashtag,
+                    style: style,
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class LerpCurve extends Curve {
+  /// Creates an interval curve.
+  ///
+  /// The arguments must not be null.
+  const LerpCurve(this.begin, this.end, {this.curve = Curves.linear})
+      : assert(begin != null),
+        assert(end != null),
+        assert(curve != null);
+
+  /// The largest value for which this interval is 0.0.
+  ///
+  /// From t=0.0 to t=`begin`, the interval's value is 0.0.
+  final double begin;
+
+  /// The smallest value for which this interval is 1.0.
+  ///
+  /// From t=`end` to t=1.0, the interval's value is 1.0.
+  final double end;
+
+  /// The curve to apply between [begin] and [end].
+  final Curve curve;
+
+  @override
+  double transform(double t) {
+    assert(t >= 0.0 && t <= 1.0);
+    assert(begin >= 0.0);
+    assert(begin <= 1.0);
+    assert(end >= 0.0);
+    assert(end <= 1.0);
+    assert(end >= begin);
+    return curve.transform(begin + (end - begin) * t);
+  }
+}
