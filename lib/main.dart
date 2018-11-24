@@ -13,11 +13,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return new MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Hashwag',
       theme: new ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: new MyHomePage(title: 'Flutter Demo Home Page'),
+      home: new MyHomePage(title: 'Flutter Hashwag'),
     );
   }
 }
@@ -119,11 +119,13 @@ class HashtagWidget extends StatelessWidget {
     List<Widget> cloudItems = List<Widget>();
     for (var i = 0; i < _count; i++) {
       final FlutterHashtag hashtag = kFlutterHashtags[i];
-      cloudItems.add(Hashtag(
-        i,
-        isSource,
-        hashtag,
-      ));
+      cloudItems.add(
+        Hashtag(
+          i,
+          isSource,
+          hashtag,
+        ),
+      );
     }
     return Scatter(
       fillGaps: true,
@@ -145,8 +147,6 @@ class Hashtag extends StatelessWidget {
           fontSize: hashtag.size.toDouble(),
           color: hashtag.color,
         );
-    final tween = Tween<double>(
-        begin: hashtag.size.toDouble(), end: hashtag.size.toDouble() / 2.0);
     final double pos = index / _count;
     return Sidekick(
       tag: isSource ? 'source_$index' : 'target_$index',
@@ -175,23 +175,19 @@ class Hashtag extends StatelessWidget {
         from,
         to,
       ) {
-        // var s = style.copyWith(
-        //     fontSize:
-        //         Tween<double>(begin: from.size.height, end: to.size.height)
-        //             .evaluate(animation));
-
         return AnimatedBuilder(
           animation: animation,
           builder: (context, child) {
             return FittedBox(
-              child: Opacity(
-                opacity: (animation.value * 2).clamp(0.0, 1.0),
-                child: RotatedBox(
-                  quarterTurns: hashtag.rotated ? 1 : 0,
-                  child: Text(
-                    hashtag.hashtag,
-                    style: style,
-                  ),
+              child: RotatedBox(
+                quarterTurns: hashtag.rotated ? 1 : 0,
+                child: Text(
+                  hashtag.hashtag,
+                  style: Theme.of(context).textTheme.body1.copyWith(
+                        fontSize: hashtag.size.toDouble(),
+                        color: hashtag.color
+                            .withOpacity((animation.value * 2).clamp(0.0, 1.0)),
+                      ),
                 ),
               ),
             );
